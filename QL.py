@@ -3,17 +3,23 @@ import time
 import sys
 import numpy as np
 import evaluation
+import argparse
+
 
 
 
 env = gym.make("MountainCar-v0")
 
 
+
 LEARNING_RATE = 0.1
 DISCOUNT_RATE = 0.95
-EPISODES = 14000
-# These are the number of observations that we are subsampling our space from. This make writing our\
-# A little easier
+EPISODES = 15000
+EPSILON = 0.10
+EPISODE_EVALUATION = 2000 #Evaluate the current policy at these times. Plottable
+
+
+# These are the number of observations that we are subsampling our space from. This make writing our
 DISCRETE_OS_SIZE = [20] * len(env.observation_space.high) # Generates the size of observations table. 20 was randomly chosen
 # Could be improved through analyzing episodes in the future
 discrete_window_size = (env.observation_space.high - env.observation_space.low) / DISCRETE_OS_SIZE # Step sizes!
@@ -32,19 +38,21 @@ def get_discrete_state(state):
 
  # Run through episodes
 
- #idk why we're not waiting for it to be done
+ #idk why we're not waiting for it to be done)
 
 for episode in range(EPISODES):
     done = False
     discrete_state = get_discrete_state(env.reset())
-    if episode % 1000 == 0:
+    if episode % EPISODE_EVALUATION == 0:
         # print(f"Episode {episode}")
         print("Episode:", episode)
         render = True        
     else:
         render = False
     while not done:
-        action = np.argmax(q_table[discrete_state])
+        values = q_table[discrete_state]
+        action = evaluation.get_action_egreedy(values,EPSILON)
+        # action = np.argmax(q_table[discrete_state])
         new_state, reward, done, _ = env.step(action)
         new_discrete_state = get_discrete_state(new_state)
         if render:
@@ -65,3 +73,6 @@ for episode in range(EPISODES):
 
 env.close()
 
+
+    
+        
