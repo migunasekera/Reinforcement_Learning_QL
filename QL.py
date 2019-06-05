@@ -16,17 +16,34 @@ class MDP(Maze):
         self.LEARNING_RATE = 0.1
         self.DISCOUNT_RATE = 0.95
 
+def RMSE(Q_t, Q_opt):
+    '''
+    Root Mean square error: 
+    '''
+    return np.sqrt(np.sum((Q_opt - Q_t) ** 2) / len(Q_opt.flatten()))
 
-def train_maze(env, EPSILON = 0.00, EPISODE_EVALUATION = 500, EPISODES = 5000):
+
+
+def train_maze(env, EPSILON = 0.10, EPISODE_EVALUATION = 500, EPISODES = 5000, findOptimal = False):
     '''
     env: Maze environment
-    EPSILON: Determines epsilon for epsilon greedy algorithm
+    EPSILON: Determines epsilon for epsilon greedy algorithm. Higher the value, the less greedy [0,1]
     EPISODE_EVALUATION: Determines the number of episodes before we will evaluate how well the maze is doing
+    EPISODES: Number of episodes that the learning algorith will run
     '''
     tmpEval = []
     q_table  = np.random.uniform(low = 0, high = 3, size = (env.snum,env.anum))
-    print(q_table.shape)
+    if findOptimal is False:
+        q_optimal = np.load('Q_maze.npy', allow_pickle = True)
     
+    else:
+        # Throwaway thing, just to speed up the coding
+        q_optimal = np.copy(q_table)
+    RMS = []
+    
+    print(q_table.shape)
+
+ 
     for episode in range(EPISODES):
         done = False
         state = env.reset()
@@ -54,14 +71,16 @@ def train_maze(env, EPSILON = 0.00, EPISODE_EVALUATION = 500, EPISODES = 5000):
                 q_table[(state,action)] = new_q # This was the critical step. You are updating the current Q state, not the future one!
             elif done: # Not too sure about how to give reward on the maze, and what the condition should be
                 q_table[(new_state,action)] = reward ##Not too sure what o do here
+                RMS.append((episode,RMSE(q_table, q_optimal)))
                 # Automatically, this is an optimal state! This is the recursive definition at the end goal I believe.
             state = new_state
 
     
     
     realEval = np.array(tmpEval)
-
-    fig, axs = plt.subplots(1,2)
+    RMS = np.array(RMS)
+    print(RMS.shape)
+    fig, axs = plt.subplots(1,3)
     fig.suptitle("Evaluation metrics for the Maze puzzle with current Q-Learning strategy")
 
     axs[0].plot(realEval[...,0],realEval[...,1])
@@ -70,6 +89,7 @@ def train_maze(env, EPSILON = 0.00, EPISODE_EVALUATION = 500, EPISODES = 5000):
     axs[0].set_xlim((0,EPISODES))
     axs[0].set_ylim((0,100))
     axs[0].set_title("Number of Steps")
+    #TODO: Implement curve fitting, to make the plots more reasonable
 
     axs[1].plot(realEval[...,0],realEval[...,2])
     axs[1].set_xlabel("Episodes")
@@ -77,10 +97,21 @@ def train_maze(env, EPSILON = 0.00, EPISODE_EVALUATION = 500, EPISODES = 5000):
     axs[1].set_xlim((0,EPISODES))
     axs[1].set_ylim((0,3))
     axs[1].set_title("Reward (0.0 - 3.0)")
+
+    axs[2].plot(RMS[...,0],RMS[...,1])
+    axs[2].set_xlabel("Episodes")
+    axs[2].set_ylabel("RMSE")
+    axs[2].set_xlim((0,EPISODES))
+    axs[2].set_ylim((0,np.max(RMS[...,1])))
+    axs[2].set_title("Root mean squared error")
+
     plt.show()
     print("Finished")
-    return q_table
-plt.Axes.set_ylim
+
+
+
+
+    return q_table, realEval, RMS
 
 
 
@@ -163,7 +194,16 @@ if __name__ == "__main__":
     parser.add_argument(
         '--acrobot', help = "Choose the Acrobat environment", action = "store_true"
     )
+    parser.add_argument(
+        '--save', help = "Will save the value that is computed, for whatever learning algorithm you chose", action = "store_true"
+
+    )
+
     args = parser.parse_args()
+
+
+
+
     if args.car:
         env = gym.make("MountainCar-v0")
         EPISODES = 15000
@@ -175,11 +215,13 @@ if __name__ == "__main__":
         name = "Q_maze"
         EPISODES = 5000
         maze_env = MDP()
-
-        q_table = train_maze(maze_env)
         # for episode in EPISODES:
+        if args.save:
+            Q, _, _ = train_maze(maze_env, findOptimal= True)
+            np.save(name,Q)
+        else:
+            Q, real_eval, RMSE = train_maze(maze_env)
 
-        np.save(name,q_table)
         
         pass
     elif args.acrobot:
@@ -187,7 +229,9 @@ if __name__ == "__main__":
         EPISODES = 15000
         env = gym.make("Acrobot-v1")
         Q = train_gym(env, EPISODES)
-        np.save(name,Q)
+        if args.save:
+            np.save(name,Q)
+        
 
 
 
