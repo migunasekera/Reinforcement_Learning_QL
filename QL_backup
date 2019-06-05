@@ -5,7 +5,7 @@ import numpy as np
 import evaluation
 import argparse
 from maze import *
-from evaluation import get_action_egreedy, evaluation
+from evaluation import *
 import time
 import matplotlib.pyplot as plt
 
@@ -24,7 +24,7 @@ def RMSE_calc(Q_t, Q_opt):
 
 
 
-def train_maze(env, EPISODES, EPISODE_EVALUATION, EPSILON = 0.10, findOptimal = False):
+def train_maze(env, EPSILON = 0.10, EPISODE_EVALUATION = 50, EPISODES = 500, findOptimal = False):
     '''
     env: Maze environment
     EPSILON: Determines epsilon for epsilon greedy algorithm. Higher the value, the less greedy [0,1]
@@ -33,13 +33,9 @@ def train_maze(env, EPISODES, EPISODE_EVALUATION, EPSILON = 0.10, findOptimal = 
     '''
     tmpEval = []
     q_table  = np.random.uniform(low = 0, high = 3, size = (env.snum,env.anum))
-    if findOptimal is False:
-        q_optimal = np.load('Q_maze.npy', allow_pickle = True)
+    q_optimal = np.load('Q_maze.npy')
     
-    else:
-        # Throwaway thing, just to speed up the coding
-        q_optimal = np.copy(q_table)
-    RMSE = []
+    RMS = []
     
     print(q_table.shape)
 
@@ -54,7 +50,6 @@ def train_maze(env, EPISODES, EPISODE_EVALUATION, EPSILON = 0.10, findOptimal = 
             avg_step, avg_reward = evaluation(env,q_table)
             print(f"Avg Step: {avg_step} \nAvg Reward: {avg_reward}")
             tmpEval.append((episode,avg_step,avg_reward))
-            
             time.sleep(1)
             continue
 
@@ -72,39 +67,35 @@ def train_maze(env, EPISODES, EPISODE_EVALUATION, EPSILON = 0.10, findOptimal = 
                 q_table[(state,action)] = new_q # This was the critical step. You are updating the current Q state, not the future one!
             elif done: # Not too sure about how to give reward on the maze, and what the condition should be
                 q_table[(new_state,action)] = reward ##Not too sure what o do here
-                RMSE.append((episode,RMSE_calc(q_table, q_optimal)))
+                RMS.append((episode,RMSE_calc(q_table, q_optimal)))
                 # Automatically, this is an optimal state! This is the recursive definition at the end goal I believe.
             state = new_state
 
     
     
     realEval = np.array(tmpEval)
-    RMSE = np.array(RMSE)
-    # print(RMSE.shape)
- 
+    RMS = np.array(RMS)
+    print(RMS.shape)
 
 
 
 
-    return q_table, realEval, RMSE
+    return q_table, realEval, RMS
 
 
-def evaluation_plot(realEval, RMSE):
+def evaluation_plots(realEval, RMSE):
+    '''
+    Does evaluation plots of number of steps elapsed, reward, and RMSE (compared to optimal Q-table)
+    '''
+    
     fig, axs = plt.subplots(1,3)
     fig.suptitle("Evaluation metrics for the Maze puzzle with current Q-Learning strategy")
-
-    episodes = realEval[...,0]
-    steps = realEval[...,1]
-    reward = realEval[...,2]
-    RMSE_val = RMSE[...,1]
-
-
 
     axs[0].plot(realEval[...,0],realEval[...,1])
     axs[0].set_xlabel("Episodes")
     axs[0].set_ylabel("Steps")
     axs[0].set_xlim((0,EPISODES))
-    axs[0].set_ylim((0,np.max(steps)))
+    axs[0].set_ylim((0,100))
     axs[0].set_title("Number of Steps")
     #TODO: Implement curve fitting, to make the plots more reasonable
 
@@ -112,14 +103,14 @@ def evaluation_plot(realEval, RMSE):
     axs[1].set_xlabel("Episodes")
     axs[1].set_ylabel("Reward")
     axs[1].set_xlim((0,EPISODES))
-    axs[1].set_ylim((np.min(reward),np.max(reward)))
+    axs[1].set_ylim((0,3))
     axs[1].set_title("Reward (0.0 - 3.0)")
 
     axs[2].plot(RMSE[...,0],RMSE[...,1])
     axs[2].set_xlabel("Episodes")
     axs[2].set_ylabel("RMSE")
     axs[2].set_xlim((0,EPISODES))
-    axs[2].set_ylim((0,np.max(RMSE_val)))
+    axs[2].set_ylim((0,np.max(RMSE[...,1])))
     axs[2].set_title("Root mean squared error")
 
     plt.show()
@@ -134,7 +125,7 @@ def get_discrete_state(env, state, DISCRETE_OS_SIZE):
     return tuple(discrete_state.astype(np.int))
 
 
-def train_gym(env, EPISODES, EPISODE_EVALUATION, EPSILON = 0.10, findOptimal = False):
+def train_gym(env,EPISODES):
     '''
     Input: Env: Gym environment
 
@@ -143,30 +134,13 @@ def train_gym(env, EPISODES, EPISODE_EVALUATION, EPSILON = 0.10, findOptimal = F
 
     LEARNING_RATE = 0.1
     DISCOUNT_RATE = 0.95
-    # EPSILON = 0.10
-    # EPISODE_EVALUATION = 500 #Evaluate the current policy at these times. Plottable
-
-
-    
-    
+    EPSILON = 0.10
+    EPISODE_EVALUATION = 500 #Evaluate the current policy at these times. Plottable
     DISCRETE_OS_SIZE = [20] * len(env.observation_space.high) # Generates the size of observations table. 20 was randomly chosen
- 
+    
+    
+
     q_table = np.random.uniform(low = -2, high = 0, size = (DISCRETE_OS_SIZE + [env.action_space.n]))
-    if findOptimal is False:
-        q_optimal = np.load('Q_car.npy', allow_pickle = True)
-    
-    else:
-        # Throwaway thing, just to speed up the coding
-        q_optimal = np.copy(q_table)
-    
-
-
-
-   
-    tmpEval = []
-    RMSE = []
-    # RMSE = []
-
     # high = get_discrete_state(env, env.observation_space.high, DISCRETE_OS_SIZE)
     # print(get_discrete_state(env, env.observation_space.low, DISCRETE_OS_SIZE))
     # print(q_table[high])
@@ -179,14 +153,11 @@ def train_gym(env, EPISODES, EPISODE_EVALUATION, EPSILON = 0.10, findOptimal = F
         # if discrete_state >= 19: # This only works for the specific case where there are 20 indices
         #     discrete_state = 19
 
+
         if episode % EPISODE_EVALUATION == 0:
-            print(f"\nEpisode {episode}")
-            avg_step, avg_reward = evaluation(env,q_table,Gym = True)
-            print(f"Avg Step: {avg_step} \nAvg Reward: {avg_reward}")
-            tmpEval.append((episode,avg_step,avg_reward))
-            time.sleep(1)
-            discrete_state = get_discrete_state(env, env.reset(),DISCRETE_OS_SIZE)
-            render = True
+            # print(f"Episode {episode}")
+            print("Episode:", episode)
+            render = True        
         else:
             render = False
         while not done:
@@ -204,17 +175,14 @@ def train_gym(env, EPISODES, EPISODE_EVALUATION, EPSILON = 0.10, findOptimal = F
                 current_q = q_table[discrete_state + (action, )]
                 new_q = (1 - LEARNING_RATE) * current_q + LEARNING_RATE * (reward + DISCOUNT_RATE * max_future_q)
                 q_table[discrete_state + (action, )] = new_q # This was the critical step. You are updating the current Q state, not the future one!
-                RMSE.append((episode, RMSE_calc(q_table,q_optimal)))
             elif reward == 0:
             # elif new_state[0] >= env.goal_position: #env.goal_position = 0.5 for MountainCar-v0 environment # What about acrobot?
                 q_table[new_discrete_state + (action, )] = 0 # Automatically, this is an optimal state!
                 print("Done at Episode: ", episode)
-            discrete_state = new_discrete_state
-    realEval = np.array(tmpEval)
-    RMSE = np.array(RMSE)
+            discrete_state = new_discrete_state         
 
     env.close()
-    return q_table, realEval, RMSE
+    return q_table
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
@@ -231,51 +199,36 @@ if __name__ == "__main__":
         '--save', help = "Will save the value that is computed, for whatever learning algorithm you chose", action = "store_true"
 
     )
-
     args = parser.parse_args()
-
-
-
-
     if args.car:
         env = gym.make("MountainCar-v0")
-        EPISODES = 1000
-        EPISODE_EVALUATION = 200
+        EPISODES = 15000
         name = "Q_car"
+        Q = train_gym(env, EPISODES)
+        np.save(name,Q)
         if args.save:
-            Q, _, _ = train_gym(env, EPISODES, EPISODE_EVALUATION, findOptimal= True)
             np.save(name,Q)
-        else:
-            Q, real_eval, RMSE = train_gym(env, EPISODES, EPISODE_EVALUATION)
-            print(f"eval: {real_eval}")
-            print(f"RMSE: {RMSE}")
-            evaluation_plot(real_eval, RMSE)
-        
 
     elif args.maze:
         name = "Q_maze"
-        EPISODES = 500
-        EPISODE_EVALUATION = 100
+        EPISODES = 5000
         maze_env = MDP()
+
+        Q, real_eval, RMSE = train_maze(maze_env)
+        evaluation_plots(real_eval, RMSE)
         # for episode in EPISODES:
         if args.save:
-            Q, _, _ = train_maze(maze_env, EPISODES, EPISODE_EVALUATION, findOptimal= True)
             np.save(name,Q)
-        else:
-            Q, real_eval, RMSE = train_maze(maze_env, EPISODES, EPISODE_EVALUATION)
-            evaluation_plot(real_eval, RMSE)        
+        
         pass
     elif args.acrobot:
         name = "Q_acrobot"
         EPISODES = 15000
-        EPISODE_EVALUATION = 2000
         env = gym.make("Acrobot-v1")
+        Q = train_gym(env, EPISODES)
+        evaluation_plots(real_eval, RMSE)
         if args.save:
-            Q, _, _ = train_gym(env, EPISODES, EPISODE_EVALUATION, findOptimal= True)
             np.save(name,Q)
-        else:
-            Q, real_eval, RMSE = train_gym(env, EPISODES, EPISODE_EVALUATION)
-            evaluation_plot(real_eval, RMSE)
         
 
 

@@ -2,6 +2,8 @@
 
 import numpy as np
 
+
+
 def get_action_egreedy(values ,epsilon):
 	# Implement epsilon greedy action policy
 	if np.random.random() < epsilon:
@@ -10,7 +12,7 @@ def get_action_egreedy(values ,epsilon):
 		return np.argmax(values)
 	NotImplementedError
 
-def evaluation(env, Q_table, step_bound = 100, num_itr = 10):
+def evaluation(env, Q_table, step_bound = 100, num_itr = 10, Gym = False):
 	"""
 	Semi-greedy evaluation for discrete state and discrete action spaces and an episodic environment.
 
@@ -29,15 +31,27 @@ def evaluation(env, Q_table, step_bound = 100, num_itr = 10):
 	total_step = 0 
 	total_reward = 0 
 	itr = 0 
+	if Gym:
+		step_bound = 200
 	while(itr<num_itr):
 		step = 0
 		np.random.seed()
 		state = env.reset()
+
+
+
 		reward = 0.0
 		done = False
+
 		while((not done) and (step < step_bound)):
-			action = get_action_egreedy(Q_table[state], 0.05)
-			r, state_n, done = env.step(state,action)
+			
+			if Gym:
+				discrete_state = get_discrete_state(env, state)
+				action = get_action_egreedy(Q_table[discrete_state], 0.05)
+				state_n, r, done, _ = env.step(action)
+			else:
+				action = get_action_egreedy(Q_table[state], 0.05)
+				r, state_n, done = env.step(state,action)
 			state = state_n
 			reward += r
 			step +=1
@@ -45,3 +59,12 @@ def evaluation(env, Q_table, step_bound = 100, num_itr = 10):
 		total_step += step
 		itr += 1
 	return total_step/float(num_itr), total_reward/float(num_itr)
+
+def get_discrete_state(env, state):
+    
+	DISCRETE_OS_SIZE = [20] * len(env.observation_space.high) # Generates the size of observations table. 20 was randomly chosen
+	discrete_window_size = (env.observation_space.high - env.observation_space.low)  / DISCRETE_OS_SIZE # Step sizes!
+	# fudge_factor = (0.01) * env.observation_space.low # This doesn't work b/c the number could be negative
+	discrete_state = (state - env.observation_space.low) / discrete_window_size
+	# print(discrete_state)
+	return tuple(discrete_state.astype(np.int))
