@@ -7,6 +7,7 @@ import argparse
 from maze import *
 from evaluation import *
 import time
+import matplotlib.pyplot as plt
 
 
 class MDP(Maze):
@@ -14,7 +15,6 @@ class MDP(Maze):
         super().__init__()
         self.LEARNING_RATE = 0.1
         self.DISCOUNT_RATE = 0.95
-        # self.q_table = self.QL_train_maze()
 
 
 def train_maze(env, EPSILON = 0.00, EPISODE_EVALUATION = 500, EPISODES = 5000):
@@ -23,7 +23,7 @@ def train_maze(env, EPSILON = 0.00, EPISODE_EVALUATION = 500, EPISODES = 5000):
     EPSILON: Determines epsilon for epsilon greedy algorithm
     EPISODE_EVALUATION: Determines the number of episodes before we will evaluate how well the maze is doing
     '''
-    # I don't really understand now what q-values are
+    tmpEval = []
     q_table  = np.random.uniform(low = 0, high = 3, size = (env.snum,env.anum))
     print(q_table.shape)
     
@@ -36,6 +36,7 @@ def train_maze(env, EPSILON = 0.00, EPISODE_EVALUATION = 500, EPISODES = 5000):
             print(f"\nEpisode {episode}")
             avg_step, avg_reward = evaluation(env,q_table)
             print(f"Avg Step: {avg_step} \nAvg Reward: {avg_reward}")
+            tmpEval.append((episode,avg_step,avg_reward))
             time.sleep(1)
             continue
 
@@ -43,12 +44,8 @@ def train_maze(env, EPSILON = 0.00, EPISODE_EVALUATION = 500, EPISODES = 5000):
         while not done:
             values = q_table[state]
             action = get_action_egreedy(values, EPSILON)
-            # action = np.argmax(q_table[discrete_state])
             reward, new_state, done = env.step(state, action)
-            # print(f"Rewards {reward}")
-            # new_discrete_state = get_discrete_state(env, new_state,DISCRETE_OS_SIZE)
-            # if render:
-            #     env.render()
+
 
             if not done:
                 max_future_q = np.max(q_table[new_state])
@@ -58,12 +55,32 @@ def train_maze(env, EPSILON = 0.00, EPISODE_EVALUATION = 500, EPISODES = 5000):
             elif done: # Not too sure about how to give reward on the maze, and what the condition should be
                 q_table[(new_state,action)] = reward ##Not too sure what o do here
                 # Automatically, this is an optimal state! This is the recursive definition at the end goal I believe.
-                # print("Done at Episode: ", episode)
             state = new_state
 
-    # env.close()
-    return q_table
+    
+    
+    realEval = np.array(tmpEval)
 
+    fig, axs = plt.subplots(1,2)
+    fig.suptitle("Evaluation metrics for the Maze puzzle with current Q-Learning strategy")
+
+    axs[0].plot(realEval[...,0],realEval[...,1])
+    axs[0].set_xlabel("Episodes")
+    axs[0].set_ylabel("Steps")
+    axs[0].set_xlim((0,EPISODES))
+    axs[0].set_ylim((0,100))
+    axs[0].set_title("Number of Steps")
+
+    axs[1].plot(realEval[...,0],realEval[...,2])
+    axs[1].set_xlabel("Episodes")
+    axs[1].set_ylabel("Reward")
+    axs[1].set_xlim((0,EPISODES))
+    axs[1].set_ylim((0,3))
+    axs[1].set_title("Reward (0.0 - 3.0)")
+    plt.show()
+    print("Finished")
+    return q_table
+plt.Axes.set_ylim
 
 
 
