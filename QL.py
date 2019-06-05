@@ -5,9 +5,64 @@ import numpy as np
 import evaluation
 import argparse
 from maze import *
+from evaluation import *
+import time
 
 
+class MDP(Maze):
+    def __init__(self):
+        super().__init__()
+        self.LEARNING_RATE = 0.1
+        self.DISCOUNT_RATE = 0.95
+        # self.q_table = self.QL_train_maze()
 
+
+def train_maze(env, EPSILON = 0.00, EPISODE_EVALUATION = 500, EPISODES = 5000):
+    '''
+    env: Maze environment
+    EPSILON: Determines epsilon for epsilon greedy algorithm
+    EPISODE_EVALUATION: Determines the number of episodes before we will evaluate how well the maze is doing
+    '''
+    # I don't really understand now what q-values are
+    q_table  = np.random.uniform(low = 0, high = 3, size = (env.snum,env.anum))
+    print(q_table.shape)
+    
+    for episode in range(EPISODES):
+        done = False
+        state = env.reset()
+        
+        # Stop training to do an evaluation
+        if episode % EPISODE_EVALUATION == 0:
+            print(f"\nEpisode {episode}")
+            avg_step, avg_reward = evaluation(env,q_table)
+            print(f"Avg Step: {avg_step} \nAvg Reward: {avg_reward}")
+            time.sleep(1)
+            continue
+
+
+        while not done:
+            values = q_table[state]
+            action = get_action_egreedy(values, EPSILON)
+            # action = np.argmax(q_table[discrete_state])
+            reward, new_state, done = env.step(state, action)
+            # print(f"Rewards {reward}")
+            # new_discrete_state = get_discrete_state(env, new_state,DISCRETE_OS_SIZE)
+            # if render:
+            #     env.render()
+
+            if not done:
+                max_future_q = np.max(q_table[new_state])
+                current_q = q_table[(state,action)]
+                new_q = (1 - env.LEARNING_RATE) * current_q + env.LEARNING_RATE * (reward + env.DISCOUNT_RATE * max_future_q)
+                q_table[(state,action)] = new_q # This was the critical step. You are updating the current Q state, not the future one!
+            elif done: # Not too sure about how to give reward on the maze, and what the condition should be
+                q_table[(new_state,action)] = reward ##Not too sure what o do here
+                # Automatically, this is an optimal state! This is the recursive definition at the end goal I believe.
+                # print("Done at Episode: ", episode)
+            state = new_state
+
+    # env.close()
+    return q_table
 
 
 
@@ -58,7 +113,7 @@ def train_gym(env,EPISODES):
             render = False
         while not done:
             values = q_table[discrete_state]
-            action = evaluation.get_action_egreedy(values,EPSILON)
+            action = get_action_egreedy(values,EPSILON)
             # action = np.argmax(q_table[discrete_state]) # Definitely greedy approach
             new_state, reward, done, _ = env.step(action)
             # print(f"Rewards {reward}")
@@ -103,7 +158,8 @@ if __name__ == "__main__":
         name = "Q_maze"
         EPISODES = 5000
         maze_env = MDP()
-        q_table = maze_env.QL_train_maze()
+
+        q_table = train_maze(maze_env)
         # for episode in EPISODES:
 
         np.save(name,q_table)
