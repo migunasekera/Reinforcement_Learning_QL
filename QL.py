@@ -237,7 +237,9 @@ def train_gym(env, EPISODES, EPISODE_EVALUATION, EPSILON, LEARNING_RATE, findOpt
                 
                 print("Done at Episode: ", episode)
             discrete_state = new_discrete_state
-        RMSE.append((episode, RMSE_calc(q_table,q_optimal)))
+        # print(f"This is episode {episode}")
+        if findOptimal is False:
+            RMSE.append((episode, RMSE_calc(q_table,q_optimal)))
     realEval = np.array(tmpEval)
     RMSE = np.array(RMSE)
 
@@ -278,8 +280,8 @@ if __name__ == "__main__":
         
         name = "Q_car"
         if args.optimal:
-            Q, real_eval, _ = train_gym(env, EPISODES, EPISODE_EVALUATION, EPSILON, LEARNING_RATE, findOptimal= True)
-            evaluation_plot(real_eval, _, name, EPSILON * 100, LEARNING_RATE * 100)
+            Q, real_eval, RMSE = train_gym(env, EPISODES, EPISODE_EVALUATION, EPSILON, LEARNING_RATE, findOptimal= True)
+            evaluation_plot(real_eval, RMSE, name, EPSILON * 100, LEARNING_RATE * 100)
             # np.save(name,Q)
             # after 12000, it's pretty good
         
@@ -302,7 +304,7 @@ if __name__ == "__main__":
         # for episode in EPISODES:
         if args.optimal:
             Q, real_eval, _ = train_maze(env, EPISODES, EPISODE_EVALUATION, EPSILON, LEARNING_RATE, findOptimal= True)
-            evaluation_plot(real_eval, _, name, EPSILON * 100, LEARNING_RATE * 100)
+            evaluation_plot(real_eval, RMSE, name, EPSILON * 100, LEARNING_RATE * 100)
             # np.save(name,Q)
         elif args.save:
                 Q, real_eval, RMSE = train_maze(env, EPISODES, EPISODE_EVALUATION, EPSILON, LEARNING_RATE)
@@ -315,14 +317,14 @@ if __name__ == "__main__":
         pass
     elif args.acrobot:
         name = "Q_acrobot"
-        EPISODES = 100
-        EPISODE_EVALUATION = 33
+        EPISODES = 15000
+        EPISODE_EVALUATION = 500
         EPSILON = 0.10
         LEARNING_RATE = 0.1
         env = gym.make("Acrobot-v1")
         if args.optimal:
             Q, real_eval, _ = train_gym(env, EPISODES, EPISODE_EVALUATION, EPSILON, LEARNING_RATE, findOptimal= True)
-            evaluation_plot(real_eval, _, name, EPSILON * 100, LEARNING_RATE * 100)
+            evaluation_plot(real_eval, RMSE, name, EPSILON * 100, LEARNING_RATE * 100)
             # np.save(name,Q)
         
         elif args.save:
