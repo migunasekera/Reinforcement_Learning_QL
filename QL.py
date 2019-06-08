@@ -21,6 +21,14 @@ def RMSE_calc(Q_t, Q_opt):
     '''
     return np.sqrt(np.sum((Q_opt - Q_t) ** 2) / len(Q_opt.flatten()))
 
+def RMSE(Q_t, Q_opt):
+    '''
+    Root Mean square error: 
+    '''
+    return np.sqrt(np.sum((Q_opt - Q_t) ** 2) / len(Q_opt.flatten()))
+
+
+
 
 ######################################################################################################
 #Maze
@@ -36,14 +44,18 @@ def train_maze(env, EPISODES, EPISODE_EVALUATION, EPSILON, LEARNING_RATE, findOp
     DISCOUNT_RATE = 0.95
     tmpEval = []
     q_table  = np.random.uniform(low = 0, high = 3, size = (env.snum,env.anum))
+
     print(findOptimal)
+
     if findOptimal is False:
         q_optimal = np.load('Q_maze.npy', allow_pickle = True)
     
     else:
+
         # Throwaway thing, just to speed up the coding. Won't actually use it, but I don't want to use logic below in RMSE calculation
         q_optimal = np.copy(q_table)
     RMSE = []
+
     
     print(q_table.shape)
 
@@ -79,13 +91,16 @@ def train_maze(env, EPISODES, EPISODE_EVALUATION, EPSILON, LEARNING_RATE, findOp
                 q_table[(state,action)] = new_q # This was the critical step. You are updating the current Q state, not the future one!
             elif done: # Not too sure about how to give reward on the maze, and what the condition should be
                 q_table[(new_state,action)] = reward ##Not too sure what o do here
+
                 RMSE.append((episode,RMSE_calc(q_table, q_optimal)))
+
                 # Automatically, this is an optimal state! This is the recursive definition at the end goal I believe.
             state = new_state
 
     
     
     realEval = np.array(tmpEval)
+
     RMSE = np.array(RMSE)
     # print(RMSE.shape)
  
@@ -106,7 +121,6 @@ def evaluation_plot(realEval, RMSE, *args, save = False):
     RMSE_val = RMSE[...,1]
 
 
-
     axs[0].plot(realEval[...,0],realEval[...,1])
     axs[0].set_xlabel("Episodes")
     axs[0].set_ylabel("Steps")
@@ -121,6 +135,7 @@ def evaluation_plot(realEval, RMSE, *args, save = False):
     axs[1].set_xlim((0,EPISODES))
     axs[1].set_ylim((np.min(reward),np.max(reward)))
     axs[1].set_title("Reward (0.0 - 3.0)")
+
 
     axs[2].plot(RMSE[...,0],RMSE[...,1])
     axs[2].set_xlabel("Episodes")
@@ -258,10 +273,12 @@ if __name__ == "__main__":
         '--acrobot', help = "Choose the Acrobat environment", action = "store_true"
     )
     parser.add_argument(
+
         '--optimal', help = "Will run to create a Q-table that will be saved as an npy format. This is the optimal q-value that will be compared against", action = "store_true"
 
     )
     parser.add_argument(
+
         '--save', help = "Will save the value that is computed, for whatever learning algorithm you chose", action = "store_true"
 
     )
@@ -297,6 +314,7 @@ if __name__ == "__main__":
     elif args.maze:
         name = "Q_maze"
         EPISODES = 5000
+
         EPISODE_EVALUATION = 200
         EPSILON = 0.10
         LEARNING_RATE = 0.1
@@ -313,7 +331,8 @@ if __name__ == "__main__":
             Q, real_eval, RMSE = train_maze(env, EPISODES, EPISODE_EVALUATION, EPSILON, LEARNING_RATE)
             evaluation_plot(real_eval, RMSE, name, EPSILON * 100, LEARNING_RATE * 100)
             # 3000 was a good one, w
-     
+
+
         pass
     elif args.acrobot:
         name = "Q_acrobot"
@@ -322,6 +341,7 @@ if __name__ == "__main__":
         EPSILON = 0.10
         LEARNING_RATE = 0.1
         env = gym.make("Acrobot-v1")
+
         if args.optimal:
             Q, real_eval, _ = train_gym(env, EPISODES, EPISODE_EVALUATION, EPSILON, LEARNING_RATE, findOptimal= True)
             evaluation_plot(real_eval, RMSE, name, EPSILON * 100, LEARNING_RATE * 100)
