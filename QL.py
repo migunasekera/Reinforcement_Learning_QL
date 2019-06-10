@@ -10,6 +10,9 @@ import matplotlib.pyplot as plt
 
 
 class MDP(Maze):
+    '''
+    Inherits all the attributes from the maze
+    '''
     def __init__(self):
         super().__init__()
         # self.LEARNING_RATE = 0.1
@@ -48,7 +51,8 @@ def train_maze(env, EPISODES, EPISODE_EVALUATION, EPSILON, LEARNING_RATE, findOp
     print(findOptimal)
 
     if findOptimal is False:
-        q_optimal = np.load('Q_maze.npy', allow_pickle = True)
+        # q_optimal = np.load('Q_maze.npy', allow_pickle = True)
+        q_optimal = np.load('Optimal/Maze/VI/Q_table.npy', allow_pickle = True)
     
     else:
 
@@ -315,9 +319,9 @@ if __name__ == "__main__":
         name = "Q_maze"
         EPISODES = 5000
 
-        EPISODE_EVALUATION = 200
+        EPISODE_EVALUATION = 500
         EPSILON = 0.10
-        LEARNING_RATE = 0.1
+        LEARNING_RATE = 0.10
         env = MDP()
         # for episode in EPISODES:
         if args.optimal:
