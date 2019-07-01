@@ -70,7 +70,7 @@ def train_maze(env, EPISODES, EPISODE_EVALUATION, EPSILON, LEARNING_RATE, findOp
         
         # Stop training to do an evaluation
         if episode % EPISODE_EVALUATION == 0:
-            print(f"\nEpisode {episode}")
+            print(f"\nEpisode {episode}/{EPISODES}")
             avg_step, avg_reward = evaluation(env,q_table)
             print(f"Avg Step: {avg_step} \nAvg Reward: {avg_reward}")
             tmpEval.append((episode,avg_step,avg_reward))
@@ -113,6 +113,34 @@ def train_maze(env, EPISODES, EPISODE_EVALUATION, EPSILON, LEARNING_RATE, findOp
 
 
     return q_table, realEval, RMSE
+
+def eval_plot_REINFORCE(realEval, *args, save = False):
+    fig, axs = plt.subplots(1,3)
+    fig.suptitle(f"Evaluation metrics for the {args[0]} puzzle with current Q-Learning strategy")
+
+    episodes = realEval[...,0]
+    steps = realEval[...,1]
+    reward = realEval[...,2]
+    RMSE_val = RMSE[...,1]
+
+
+    axs[0].plot(realEval[...,0],realEval[...,1])
+    axs[0].set_xlabel("Episodes")
+    axs[0].set_ylabel("Steps")
+    axs[0].set_xlim((0,EPISODES))
+    axs[0].set_ylim((0,np.max(steps)))
+    axs[0].set_title("Number of Steps")
+    #TODO: Implement curve fitting, to make the plots more reasonable
+
+    axs[1].plot(realEval[...,0],realEval[...,2])
+    axs[1].set_xlabel("Episodes")
+    axs[1].set_ylabel("Reward")
+    axs[1].set_xlim((0,EPISODES))
+    axs[1].set_ylim((np.min(reward),np.max(reward)))
+    axs[1].set_title("Reward (0.0 - 3.0)")
+    if save:
+        fig.savefig(f"Results/{args[0]}_{int(args[1])}_{int(args[2])}.png")
+
 
 
 def evaluation_plot(realEval, RMSE, *args, save = False):
@@ -219,7 +247,7 @@ def train_gym(env, EPISODES, EPISODE_EVALUATION, EPSILON, LEARNING_RATE, findOpt
         #     discrete_state = 19
 
         if episode % EPISODE_EVALUATION == 0:
-            print(f"\nEpisode {episode}")
+            print(f"\nEpisode {episode}/{EPISODES}")
             avg_step, avg_reward = evaluation(env,q_table,Gym = True)
             print(f"Avg Step: {avg_step} \nAvg Reward: {avg_reward}")
             tmpEval.append((episode,avg_step,avg_reward))
@@ -295,7 +323,7 @@ if __name__ == "__main__":
     if args.car:
         env = gym.make("MountainCar-v0")
         EPISODES = 15000
-        EPISODE_EVALUATION = 500
+        EPISODE_EVALUATION = 2000
         EPSILON = 0.10
         LEARNING_RATE = 0.1
         

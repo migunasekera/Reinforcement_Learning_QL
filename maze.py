@@ -129,6 +129,7 @@ if __name__ == '__main__':
 		action = input("Enter Action [0, 1, 2, 3]: ")
 		action = int(action)
 		reward, state, done = maze.step(state, action)
-		print(reward)
+		# print(reward)
+		print(reward, state, done)
 		maze.plot(state, action)
 

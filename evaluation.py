@@ -1,6 +1,7 @@
 # Heejin Chloe Jeong
 
 import numpy as np
+import torch
 
 
 
@@ -12,9 +13,18 @@ def get_action_egreedy(values ,epsilon):
 		return np.argmax(values)
 	NotImplementedError
 
-def evaluation(env, Q_table, step_bound = 100, num_itr = 10, Gym = False):
+def get_action_policy_grad(policy_estimator, state):
+	action_probs = policy_estimator(state).detach().numpy()
+	action = np.random.choice((policy_estimator.n_output), p = action_probs)
+
+	return action
+    
+
+def evaluation(env, Q_table = None, step_bound = 100, num_itr = 10, Gym = False, policy_estimator = None):
 	"""
-	Semi-greedy evaluation for discrete state and discrete action spaces and an episodic environment.
+	evaluation for discrete state and discrete action spaces and an episodic environment.
+    
+    If it's not a 
 
 	Input:
 		env : an environment object. 
@@ -42,13 +52,20 @@ def evaluation(env, Q_table, step_bound = 100, num_itr = 10, Gym = False):
 
 		reward = 0.0
 		done = False
-
 		while((not done) and (step < step_bound)):
 			
 			if Gym:
-				discrete_state = get_discrete_state(env, state)
-				action = get_action_egreedy(Q_table[discrete_state], 0.05)
-				state_n, r, done, _ = env.step(action)
+				if Q_table is not None:
+					discrete_state = get_discrete_state(env, state)
+					action = get_action_egreedy(Q_table[discrete_state], 0.05)
+					state_n, r, done, _ = env.step(action)
+				
+				elif policy_estimator is not None:
+					state = torch.FloatTensor(state)
+					action = get_action_policy_grad(policy_estimator, state)
+					
+					# action = get_action_policy_grad(policy_estimator, state)
+					state_n, r, done, _ = env.step(action)
 			else:
 				action = get_action_egreedy(Q_table[state], 0.05)
 				r, state_n, done = env.step(state,action)
