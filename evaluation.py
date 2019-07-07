@@ -20,7 +20,7 @@ def get_action_policy_grad(policy_estimator, state):
 	return action
     
 
-def evaluation(env, Q_table = None, step_bound = 100, num_itr = 10, Gym = False, policy_estimator = None):
+def evaluate(env, Q_table = None, step_bound = 100, num_itr = 10, Gym = False, policy_estimator = None):
 	"""
 	evaluation for discrete state and discrete action spaces and an episodic environment.
     

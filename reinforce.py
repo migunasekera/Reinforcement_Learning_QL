@@ -4,10 +4,9 @@ from torch import nn
 from torch import optim
 import torch
 import gym
-import evaluation as ev
-
-
-env = gym.make("MountainCar-v0")
+from evaluation import evaluate
+import matplotlib.pyplot as plt
+import time
 
 class PolicyEstimator(nn.Module):
     def __init__(self, env):
@@ -39,37 +38,45 @@ def discount_rewards(reward_array, DISCOUNT = 0.99):
 # def discount(reward, DISCOUNT = 0.99):
     
 def action_choice(policy_estimator, state):   
-    # state = torch.FloatTensor(state)
-
-    
     action_probs = policy_estimator(state).detach().numpy()
-    # Probability may come out as NaN
     action = np.random.choice((policy_estimator.n_output), p = action_probs)
-    
     return action
 
-def reinforce(env, policy_estimator, DISCOUNT = 0.99, EPISODES = 2000, lr = 0.01, EVALENV = 500):
+def reinforce(env, policy_estimator, DISCOUNT = 0.99, EPISODES = 2000, lr = 0.01, EVALUATION_STEP = 400):
     optimizer = optim.Adam(policy_estimator.parameters(), lr = lr)
     
     # Generate episodes
     
 
     
+    cumulative_reward = []
     running_reward = 0
+    
+    steps = []
+    eval_reward = []
+        
     for ep in range(EPISODES):
+        
+        if ep % EVALUATION_STEP == 0:
+            st, er = evaluate(env, Q_table = None, step_bound = 100, num_itr = 10, Gym = True, policy_estimator = policy_estimator)
+            steps.append(st)
+            eval_reward.append(er)
         
         # Record actions, states, and rewards for each episode
         states = []
         actions = []
         rewards = []
+        total_rewards = []
         done = False
+            
+   
         
-    
-        if ep % EVALENV == 0:
-            ev.evaluation(env, Q_table = None, step_bound = 100, num_itr = 10, Gym = True, policy_estimator = net)
-
+        # If it isn't the x episode, then continue the evaluation
+        
         s_0 = torch.FloatTensor(env.reset())
+    
         while done is False:
+            
             action = action_choice(policy_estimator, s_0)
             
 #             action_probs = policy_estimator(s_0).detach().numpy()
@@ -87,7 +94,9 @@ def reinforce(env, policy_estimator, DISCOUNT = 0.99, EPISODES = 2000, lr = 0.01
                 
                 action_tensor = torch.LongTensor(actions)
                 states_tensor = torch.tensor(states).float()
-                reward_tensor = torch.tensor(rewards).float()
+#                 reward_tensor = torch.tensor(rewards).float()
+                reward_tensor = torch.tensor(G).float()
+#                 total_rewards.append(sum(rewards))
                 
                 
                 
@@ -95,12 +104,25 @@ def reinforce(env, policy_estimator, DISCOUNT = 0.99, EPISODES = 2000, lr = 0.01
                 # collect them all. convert reward per step into G. 
                 
                 running_reward += reward_tensor.sum()
+                cumulative_reward.append(running_reward.item())
                 
                 #Create the loss function
                 #logprobs = torch.log(G * policy_estimator(states_tensor))
+                 # Basically create a tensor size [1, len(reward_tensor)] Below doesn't actually work
+                WINDOW = 20
+
+#                 baseline = np.mean(reward_tensor[-WINDOW:].detach().numpy())
+
+
+#                 # Calculate loss
+#                 reward_with_baseline = reward_tensor - baseline
+                
+                
+                
                 logprob = torch.log(policy_estimator(states_tensor))
+#                 selected_logprobs = reward_with_baseline * logprob[np.arange(len(action_tensor)), action_tensor]
                 selected_logprobs = reward_tensor * logprob[np.arange(len(action_tensor)), action_tensor]
-                loss = -selected_logprobs.mean()
+                loss = -selected_logprobs.sum()
 
                     
         
@@ -121,6 +143,8 @@ def reinforce(env, policy_estimator, DISCOUNT = 0.99, EPISODES = 2000, lr = 0.01
                 actions = []
                 rewards = []
                 
+    
+                
                       
                       
               
@@ -130,14 +154,44 @@ def reinforce(env, policy_estimator, DISCOUNT = 0.99, EPISODES = 2000, lr = 0.01
         # Show the results of the neural net (inference step)
         
         
-    return policy_estimator
+    return cumulative_reward, steps, eval_reward
+                
            
                 
 if __name__ == "__main__":
-    env = gym.make("MountainCar-v0")
-    net = PolicyEstimator(env)
-    optimized_net = reinforce(env, net)
-    np.save('REINFORCE-1')
+    RUNS = 2 # number of different seeds you are trying out - checking by eye for variance
+
+
+fig, axs = plt.subplots(RUNS,1,figsize= (15 * RUNS,11))
+seeds = []
+
+
+
+
+for run in range(RUNS):
+    env = gym.make("CartPole-v0")
+#     env._max_episode_steps = 1000
+    seed = env.seed()
+    seeds.append(seed)
+    pe = PolicyEstimator(env)
+    
+    
+    start = time.time()
+    cum_reward, steps, eval_reward = reinforce(env, pe, EPISODES = 2000)
+    
+    end = time.time()
+    print(f'time of run {run} for seed {seed} in minutes: {(end-start) / 60.}')
+    axs[0].plot(steps)
+    axs[0].set_ylabel("Steps taken")
+    axs[0].set_xlabel("Episodes")
+    axs[0].legend(seeds)
+    
+    print(f'time of run {run} for seed {seed} in minutes: {(end-start) / 60.}')
+    axs[1].plot(eval_reward)
+    axs[1].set_ylabel("Cumulative reward")
+    axs[1].set_xlabel("Episodes")
+    axs[1].legend(seeds)
+    plt.show()
 
 
 
