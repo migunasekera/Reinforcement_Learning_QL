@@ -7,6 +7,8 @@ import gym
 from evaluation import evaluate
 import matplotlib.pyplot as plt
 import time
+import argparse
+from maze import Maze
 
 class PolicyEstimator(nn.Module):
     def __init__(self, env):
@@ -73,10 +75,11 @@ def reinforce(env, policy_estimator, DISCOUNT = 0.99, EPISODES = 2000, lr = 0.01
         
         # If it isn't the x episode, then continue the evaluation
         
-        s_0 = torch.FloatTensor(env.reset())
+        s_0 = torch.tensor(env.reset()).float()
     
         while done is False:
             
+            print(s_0)
             action = action_choice(policy_estimator, s_0)
             
 #             action_probs = policy_estimator(s_0).detach().numpy()
@@ -87,6 +90,7 @@ def reinforce(env, policy_estimator, DISCOUNT = 0.99, EPISODES = 2000, lr = 0.01
             states.append(s_1)
             actions.append(action)
             rewards.append(reward)
+            s_0 = torch.from_numpy(s_1).float()
             
             if done:
                 
@@ -159,39 +163,71 @@ def reinforce(env, policy_estimator, DISCOUNT = 0.99, EPISODES = 2000, lr = 0.01
            
                 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description='Choose the environment we are working with')
+    parser.add_argument(
+        '--car', help = "Choose the MountainCar gym environment", action = "store_true")
+    parser.add_argument(
+        '--maze', help = "Choose the Maze environment", action = "store_true"
+    )
+    parser.add_argument(
+        '--cart', help = 'Choose the CartPole environment', action = "store_true"
+    )
+    parser.add_argument(
+        '--acrobot', help = "Choose the acrobot environment", action = "store_true"
+    )
+
+    args = parser.parse_args()
+
+ 
+
+    
     RUNS = 2 # number of different seeds you are trying out - checking by eye for variance
 
 
-fig, axs = plt.subplots(RUNS,1,figsize= (15 * RUNS,11))
-seeds = []
+    fig, axs = plt.subplots(RUNS,1,figsize= (15 * RUNS,11))
+    seeds = []
 
 
 
 
-for run in range(RUNS):
-    env = gym.make("CartPole-v0")
-#     env._max_episode_steps = 1000
-    seed = env.seed()
-    seeds.append(seed)
-    pe = PolicyEstimator(env)
-    
-    
-    start = time.time()
-    cum_reward, steps, eval_reward = reinforce(env, pe, EPISODES = 2000)
-    
-    end = time.time()
-    print(f'time of run {run} for seed {seed} in minutes: {(end-start) / 60.}')
-    axs[0].plot(steps)
-    axs[0].set_ylabel("Steps taken")
-    axs[0].set_xlabel("Episodes")
-    axs[0].legend(seeds)
-    
-    print(f'time of run {run} for seed {seed} in minutes: {(end-start) / 60.}')
-    axs[1].plot(eval_reward)
-    axs[1].set_ylabel("Cumulative reward")
-    axs[1].set_xlabel("Episodes")
-    axs[1].legend(seeds)
-    plt.show()
+    for run in range(RUNS):
+        
+        if args.car:
+            env = gym.make("MountainCar-v0")
+            env.max_episode_steps = 1000
+        if args.maze:
+            # This doesn't have seed argument, so this could break it most likely
+            env = Maze()
+        if args.acrobot:
+            env = gym.make("Acrobot-v1")
+        if args.cart:
+            env = gym.make("CartPole-v0")
+        seed = env.seed()
+        seeds.append(seed)
+
+
+
+
+        pe = PolicyEstimator(env)
+        
+        
+        start = time.time()
+        cum_reward, steps, eval_reward = reinforce(env, pe, EPISODES = 2000)
+        
+        end = time.time()
+        print(f'time of run {run} for seed {seed} in minutes: {(end-start) / 60.}')
+        axs[0].plot(steps)
+        axs[0].set_ylabel("Steps taken")
+        axs[0].set_xlabel("Episodes")
+        axs[0].legend(seeds)
+        
+        print(f'time of run {run} for seed {seed} in minutes: {(end-start) / 60.}')
+        axs[1].plot(eval_reward)
+        axs[1].set_ylabel("Cumulative reward")
+        axs[1].set_xlabel("Episodes")
+        axs[1].legend(seeds)
+        plt.show()
 
 
 
