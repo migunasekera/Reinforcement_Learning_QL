@@ -7,16 +7,8 @@ from maze import Maze
 import argparse
 if "../" not in sys.path:
   sys.path.append("../") 
-# path = "http://localhost:8889/files/lib"
-
-
-# from lib.envs.gridworld import GridworldEnv
-
 
 pp = pprint.PrettyPrinter(indent=2)
-# env = GridworldEnv()
-
-# Taken from Policy Evaluation Exercise!
 
 class MDP(Maze):
     '''

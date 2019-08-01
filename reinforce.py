@@ -9,6 +9,8 @@ import matplotlib.pyplot as plt
 import time
 import argparse
 from maze import Maze
+import matplotlib.pyplot as plt
+import time
 
 class PolicyEstimator(nn.Module):
     def __init__(self, env):
@@ -39,132 +41,126 @@ def discount_rewards(reward_array, DISCOUNT = 0.99):
 
 # def discount(reward, DISCOUNT = 0.99):
     
-def action_choice(policy_estimator, state):   
+# def action_choice(policy_estimator, state):   
+#     action_probs = policy_estimator(state).detach().numpy()
+#     action = np.random.choice((policy_estimator.n_output), p = action_probs)
+#     return action
+
+def action_choice(policy_estimator, state):
+    # May cause conflicts with the Maze environment
     action_probs = policy_estimator(state).detach().numpy()
     action = np.random.choice((policy_estimator.n_output), p = action_probs)
-    return action
+    idx = action_probs[action]
+    return action, idx
 
-def reinforce(env, policy_estimator, DISCOUNT = 0.99, EPISODES = 2000, lr = 0.01, EVALUATION_STEP = 400):
-    optimizer = optim.Adam(policy_estimator.parameters(), lr = lr)
+def reward_shaper(env, state):
+    '''
+    based on Andrew Ng's work: https://people.eecs.berkeley.edu/~pabbeel/cs287-fa09/readings/NgHaradaRussell-shaping-ICML1999.pdf
     
-    # Generate episodes
+    Purpose is to introduce less sparse, smaller rewards, so that reaching the next bigger reward is more attainable
     
+    This is designed for the MountainCar example, which has a very sparse reward. In fact, it may be better to introduce something that would lead to a positive reward at its max!
+    
+    Normalize to be between 0 and 1
+    '''
+    return np.abs(state) / env.observation_space.high
 
+
+def generate_episode(env, policy_estimator):
+    done = False
+
+    action_prob_val = []
+    action_list = []
+    state_list = []
+    s_0 = torch.from_numpy(env.reset()).float() # Initial state
+    cumulative_reward = 0
+    reward_list = []
+    while not done:
+        # Pick an action, and step through environment
+        
+        action, prob = action_choice(pe, s_0)
+
+        # Append this before you do reward shaping. This will be used as comparison
+        state_list.append(s_0)
+
+        s_1, reward, done, _ = env.step(action)
+        
+        # Track this on the graph, but use reward shaping in your calculations
+        cumulative_reward += reward
+        ######################################################################################
+#       reward shaping
+        if env.spec._env_name == 'MountainCar':
+            
+            # Arbitrary value just to see how results look like. I purposely made it less than 1
+            
+            
+
+            beta = 1.25 # This is the key. For Mountaincar, this needs make it net positive if you reach maximum velocity. Since all rewards are -1, at max velocity this would give a positve reward
+            F = reward_shaper(env, s_1) # Reward shaping function
+            reward = reward + beta * F[1]
+        ######################################################################################
+            
+            
+        
+        action_prob_val.append(prob)
+        reward_list.append(reward)
+        action_list.append(action)
+        s_0 = torch.from_numpy(s_1).float() # Make state the next one
+            
+    return cumulative_reward, reward_list, action_list, state_list
+
+
+def reinforce(env, policy_estimator, EPISODES = 2000, isBaseline = False, lr = .001, gamma = 0.99):
+    '''
+    When going through episodes, this will do reward shaping
     
+    '''
     cumulative_reward = []
-    running_reward = 0
+    optimizer = optim.Adam(pe.parameters(), lr = lr)
+
+    for episode in range(EPISODES):
+        cum_rewards, reward_list, action_list, state_list = generate_episode(env, policy_estimator)
+        
+        # Use the cumulative reward metric in the end. Now that I've added reward shaping, it would be best to show whether the end goal converges, rather than what I'm shaping
+        cumulative_reward.append(cum_rewards)
+
+        # Compute loss
+        reward_tensor = torch.tensor(reward_list).float()
+        action_tensor = torch.tensor(action_list).long()
+        state_tensor = torch.stack(state_list)
+
+        # Does this need to be seeded?
+        action_output = torch.log(policy_estimator(state_tensor))
+
+        # This is just doing an indexing! It picks the action that was chosen in the run. There is no operation here that pytorch has to track
+        picked_logprob = action_output[np.arange(len(action_tensor)), action_tensor]
+
+        # Adds a return value (with discounting) for every time point until episode finishes e.g [-200, -198, ......, 0]
+        return_tensor = discount_rewards(reward_tensor, DISCOUNT = gamma)
+        
+        if isBaseline:
+            WINDOW = 20          
+            
+            # ----- BASELINE ----- #
+            baseline = torch.stack([torch.mean(return_tensor[i-WINDOW:i+1]) if i > WINDOW 
+                        else torch.mean(return_tensor[:i+1]) for i in range(len(return_tensor))])
+            return_tensor = return_tensor - baseline
+        # print(return_tensor[-10:])
+
+        # loss has negative sign, because we are doing gradient ascent
+        loss = torch.sum(-return_tensor * picked_logprob)
+    #     loss_list.append(loss)
+        print(f'\r episode {episode} -------- loss {loss} -------- rewards {cumulative_reward[-1]}', end = " ")
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
     
-    steps = []
-    eval_reward = []
-        
-    for ep in range(EPISODES):
-        
-        if ep % EVALUATION_STEP == 0:
-            st, er = evaluate(env, Q_table = None, step_bound = 100, num_itr = 10, Gym = True, policy_estimator = policy_estimator)
-            steps.append(st)
-            eval_reward.append(er)
-        
-        # Record actions, states, and rewards for each episode
-        states = []
-        actions = []
-        rewards = []
-        total_rewards = []
-        done = False
-            
-   
-        
-        # If it isn't the x episode, then continue the evaluation
-        
-        s_0 = torch.tensor(env.reset()).float()
-    
-        while done is False:
-            
-            print(s_0)
-            action = action_choice(policy_estimator, s_0)
-            
-#             action_probs = policy_estimator(s_0).detach().numpy()
-#             action = np.random.choice((policy_estimator.n_output), p = action_probs)
-
-            s_1, reward, done, _ = env.step(action)
-            
-            states.append(s_1)
-            actions.append(action)
-            rewards.append(reward)
-            s_0 = torch.from_numpy(s_1).float()
-            
-            if done:
-                
-                G = discount_rewards(rewards)
-                
-                action_tensor = torch.LongTensor(actions)
-                states_tensor = torch.tensor(states).float()
-#                 reward_tensor = torch.tensor(rewards).float()
-                reward_tensor = torch.tensor(G).float()
-#                 total_rewards.append(sum(rewards))
-                
-                
-                
-                
-                # collect them all. convert reward per step into G. 
-                
-                running_reward += reward_tensor.sum()
-                cumulative_reward.append(running_reward.item())
-                
-                #Create the loss function
-                #logprobs = torch.log(G * policy_estimator(states_tensor))
-                 # Basically create a tensor size [1, len(reward_tensor)] Below doesn't actually work
-                WINDOW = 20
-
-#                 baseline = np.mean(reward_tensor[-WINDOW:].detach().numpy())
-
-
-#                 # Calculate loss
-#                 reward_with_baseline = reward_tensor - baseline
-                
-                
-                
-                logprob = torch.log(policy_estimator(states_tensor))
-#                 selected_logprobs = reward_with_baseline * logprob[np.arange(len(action_tensor)), action_tensor]
-                selected_logprobs = reward_tensor * logprob[np.arange(len(action_tensor)), action_tensor]
-                loss = -selected_logprobs.sum()
-
-                    
-        
-    
-#     logprobs = torch.log(G * action_tensor)
-#                 loss = -torch.sum(logprobs)
-                
-#                 print(f'running_reward {running_reward} loss: {loss}')
-                print("\r Ep {}/{} running reward: {}, loss {}".format(ep, EPISODES, running_reward, loss), end = "")
-                #Backprop
-                optimizer.zero_grad()
-                loss.backward()
-                
-                
-                optimizer.step()
-                
-                states = []
-                actions = []
-                rewards = []
-                
-    
-                
-                      
-                      
-              
-                
-                
-                
-        # Show the results of the neural net (inference step)
-        
-        
-    return cumulative_reward, steps, eval_reward
-                
+    return cumulative_reward
            
                 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description='Choose the environment we are working with')
+        description='Choose the environment we are working with. All will be run over 2000 episodes')
     parser.add_argument(
         '--car', help = "Choose the MountainCar gym environment", action = "store_true")
     parser.add_argument(
@@ -179,20 +175,20 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
- 
 
+EPISODES = 2000
+gamma_list = [0.99, 0.90]
+# lr_list = [1e-5, 1e-4, 1e-3, 1e-2, 1e-1]
+
+
+fig, axs = plt.subplots(1,1, figsize = (15,11))
+
+
+for g in gamma_list:
+#     env = gym.make("Acrobot-v1")
     
-    RUNS = 2 # number of different seeds you are trying out - checking by eye for variance
-
-
-    fig, axs = plt.subplots(RUNS,1,figsize= (15 * RUNS,11))
-    seeds = []
-
-
-
-
     for run in range(RUNS):
-        
+    
         if args.car:
             env = gym.make("MountainCar-v0")
             env.max_episode_steps = 1000
@@ -205,29 +201,20 @@ if __name__ == "__main__":
             env = gym.make("CartPole-v0")
         seed = env.seed()
         seeds.append(seed)
+    env.seed(0)
+    pe = PolicyEstimator(env)
+    
+    start = time.time()
+    rewards = reinforce(env, pe, isBaseline = True, gamma = g)
+    print(time.time() - start)
+    window = 10
+    smoothed_rewards = [np.mean(rewards[i-window:i+1]) if i > window 
+                            else np.mean(rewards[:i+1]) for i in range(len(rewards))]
+    axs.plot(smoothed_rewards)
 
-
-
-
-        pe = PolicyEstimator(env)
-        
-        
-        start = time.time()
-        cum_reward, steps, eval_reward = reinforce(env, pe, EPISODES = 2000)
-        
-        end = time.time()
-        print(f'time of run {run} for seed {seed} in minutes: {(end-start) / 60.}')
-        axs[0].plot(steps)
-        axs[0].set_ylabel("Steps taken")
-        axs[0].set_xlabel("Episodes")
-        axs[0].legend(seeds)
-        
-        print(f'time of run {run} for seed {seed} in minutes: {(end-start) / 60.}')
-        axs[1].plot(eval_reward)
-        axs[1].set_ylabel("Cumulative reward")
-        axs[1].set_xlabel("Episodes")
-        axs[1].legend(seeds)
-        plt.show()
-
-
+axs.set_xlabel("Episodes")
+axs.set_ylabel("Rewards")
+axs.legend(gamma_list)
+fig.suptitle(f"{env.spec._env_name} rewards on vanilla REINFORCE with moving average baseline with reward shaping", fontsize = 16)
+plt.show()
 

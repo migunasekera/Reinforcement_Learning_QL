@@ -5,8 +5,9 @@ import numpy as np
 import evaluation
 import argparse
 from maze import *
-from evaluation import get_action_egreedy, evaluation
+from evaluation import get_action_egreedy, evaluate
 import matplotlib.pyplot as plt
+import time
 
 
 class MDP(Maze):
@@ -18,17 +19,22 @@ class MDP(Maze):
         # self.LEARNING_RATE = 0.1
         
 
-def RMSE_calc(Q_t, Q_opt):
-    '''
-    Root Mean square error: 
-    '''
-    return np.sqrt(np.sum((Q_opt - Q_t) ** 2) / len(Q_opt.flatten()))
+def RMSE(predictions, targets):
+    return np.sqrt(((predictions - targets) ** 2).mean())
+def RMSE_calc(predictions,targets):
+    return np.sqrt(((predictions - targets) ** 2).mean())
 
-def RMSE(Q_t, Q_opt):
-    '''
-    Root Mean square error: 
-    '''
-    return np.sqrt(np.sum((Q_opt - Q_t) ** 2) / len(Q_opt.flatten()))
+# def RMSE(Q_t, Q_opt):
+#     '''
+#     Root Mean square error: 
+#     '''
+#     return np.sqrt(np.sum((Q_opt - Q_t) ** 2) / len(Q_opt.flatten()))
+
+# def RMSE_calc(Q_t, Q_opt):
+#     '''
+#     Root Mean square error: 
+#     '''
+#     return np.sqrt(np.sum((Q_opt - Q_t) ** 2) / len(Q_opt.flatten()))
 
 
 
@@ -71,7 +77,7 @@ def train_maze(env, EPISODES, EPISODE_EVALUATION, EPSILON, LEARNING_RATE, findOp
         # Stop training to do an evaluation
         if episode % EPISODE_EVALUATION == 0:
             print(f"\nEpisode {episode}/{EPISODES}")
-            avg_step, avg_reward = evaluation(env,q_table)
+            avg_step, avg_reward = evaluate(env,q_table)
             print(f"Avg Step: {avg_step} \nAvg Reward: {avg_reward}")
             tmpEval.append((episode,avg_step,avg_reward))
             if findOptimal:
@@ -83,6 +89,7 @@ def train_maze(env, EPISODES, EPISODE_EVALUATION, EPSILON, LEARNING_RATE, findOp
 
 
         while not done:
+            
             values = q_table[state]
             action = get_action_egreedy(values, EPSILON)
             reward, new_state, done = env.step(state, action)
@@ -100,6 +107,7 @@ def train_maze(env, EPISODES, EPISODE_EVALUATION, EPSILON, LEARNING_RATE, findOp
 
                 # Automatically, this is an optimal state! This is the recursive definition at the end goal I believe.
             state = new_state
+
 
     
     
@@ -193,7 +201,7 @@ def get_discrete_state(env, state, DISCRETE_OS_SIZE):
     return tuple(discrete_state.astype(np.int))
 
 
-def train_gym(env, EPISODES, EPISODE_EVALUATION, EPSILON, LEARNING_RATE, findOptimal = False):
+def train_gym(env, EPISODES, EPISODE_EVALUATION, EPSILON, LEARNING_RATE, findOptimal = False, Render = False):
     '''
     Input: Env: Gym environment
 
@@ -209,7 +217,7 @@ def train_gym(env, EPISODES, EPISODE_EVALUATION, EPSILON, LEARNING_RATE, findOpt
 
     
     
-    DISCRETE_OS_SIZE = [20] * len(env.observation_space.high) # Generates the size of observations table. 20 was randomly chosen
+    DISCRETE_OS_SIZE = [20] * len(env.observation_space.high) # Generates the size of discretized observations table. 20 was randomly chosen
  
     q_table = np.random.uniform(low = -2, high = 0, size = (DISCRETE_OS_SIZE + [env.action_space.n]))
     if findOptimal is False:
@@ -219,7 +227,6 @@ def train_gym(env, EPISODES, EPISODE_EVALUATION, EPSILON, LEARNING_RATE, findOpt
             q_optimal = np.load("Q_acrobot.npy")
     
     else:
-        # Throwaway thing, hacky way to solve it actually
         if env.observation_space.shape[0] == 2: ## Car environment
             name = "Car"
         elif env.observation_space.shape[0] == 6: ## Acrobot environment
@@ -248,19 +255,23 @@ def train_gym(env, EPISODES, EPISODE_EVALUATION, EPSILON, LEARNING_RATE, findOpt
 
         if episode % EPISODE_EVALUATION == 0:
             print(f"\nEpisode {episode}/{EPISODES}")
-            avg_step, avg_reward = evaluation(env,q_table,Gym = True)
+            avg_step, avg_reward = evaluate(env,q_table,Gym = True)
             print(f"Avg Step: {avg_step} \nAvg Reward: {avg_reward}")
             tmpEval.append((episode,avg_step,avg_reward))
             time.sleep(1)
+            # print(f"finished evaluation {episode}")
             discrete_state = get_discrete_state(env, env.reset(),DISCRETE_OS_SIZE)
+            RMSE.append((episode, RMSE_calc(q_table,q_optimal)))
             if findOptimal:
                 print(f"Saving episode {episode}...")
                 np.save(f"Optimal/{name}/{episode}.npy",q_table)
-            render = True
+            
+            render = Render
         else:
             render = False
         while not done:
             values = q_table[discrete_state]
+            
             action = get_action_egreedy(values,EPSILON)
             # action = np.argmax(q_table[discrete_state]) # Definitely greedy approach
             new_state, reward, done, _ = env.step(action)
@@ -285,10 +296,13 @@ def train_gym(env, EPISODES, EPISODE_EVALUATION, EPSILON, LEARNING_RATE, findOpt
                 print("Done at Episode: ", episode)
             discrete_state = new_discrete_state
         # print(f"This is episode {episode}")
-        if findOptimal is False:
-            RMSE.append((episode, RMSE_calc(q_table,q_optimal)))
+        
+        # if findOptimal is False:
+            
+            
     realEval = np.array(tmpEval)
     RMSE = np.array(RMSE)
+    
 
     env.close()
     return q_table, realEval, RMSE
@@ -313,6 +327,9 @@ if __name__ == "__main__":
 
         '--save', help = "Will save the value that is computed, for whatever learning algorithm you chose", action = "store_true"
 
+    )
+    parser.add_argument(
+        '--render', help = "Decide if you would like rendering on evaluation steps"
     )
 
     args = parser.parse_args()
