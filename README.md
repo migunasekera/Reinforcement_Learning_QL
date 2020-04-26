@@ -22,12 +22,12 @@ optional arguments:
   --acrobot   Choose the Acrobat environment
 
 ## Results:
-![Acrobot 5 seeds](https://github.com/migunasekera/Reinforcement_Learning_QL/Results/acrobot_MAverage.png)
+![Acrobot 5 seeds](./Results/acrobot_MAverage.png)
 
-![Acrobot discounting test](https://github.com/migunasekera/Reinforcement_Learning_QL/Results/acrobot_MAverage_discounting.png)
+![Acrobot discounting test](./Results/acrobot_MAverage_discounting.png)
 
-![MountainCar 5 seeds](https://github.com/migunasekera/Reinforcement_Learning_QL/Results/mountaincar_MAverage.png)
+![MountainCar 5 seeds](./Results/mountaincar_MAverage.png)
 
-![MountainCar reward shaping](https://github.com/migunasekera/Reinforcement_Learning_QL/Results/mountaincar_MAverage_RShaping.png)
+![MountainCar reward shaping](./Results/mountaincar_MAverage_RShaping.png)
 
 
