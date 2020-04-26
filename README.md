@@ -1,8 +1,11 @@
-# Reinforcement_Learning_QL
+# Learning optimal policies in an MDP environment
 Assignment 4 for ECE 5242: Intelligent Autonomous Systems, taught by Dr. Dan Lee
 
-To run, follow these instructions:
+## About:
+The purpose of this project was to find optimal or near-optimal solutions to solve problems in complex environments.
 
+### What is reinforcement learning?
+## How to run
 For acrobot, first run following:
 QL.py --acrobot --optimal
 followed by following to see evaluation
@@ -17,3 +20,14 @@ optional arguments:
   --car       Choose the MountainCar gym environment
   --maze      Choose the Maze environment
   --acrobot   Choose the Acrobat environment
+
+## Results:
+![Acrobot 5 seeds](https://github.com/migunasekera/Reinforcement_Learning_QL/Results/acrobot_MAverage.png)
+
+![Acrobot discounting test](https://github.com/migunasekera/Reinforcement_Learning_QL/Results/acrobot_MAverage_discounting.png)
+
+![MountainCar 5 seeds](https://github.com/migunasekera/Reinforcement_Learning_QL/Results/mountaincar_MAverage.png)
+
+![MountainCar reward shaping](https://github.com/migunasekera/Reinforcement_Learning_QL/Results/mountaincar_MAverage_RShaping.png)
+
+

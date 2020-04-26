@@ -176,45 +176,47 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
 
-EPISODES = 2000
-gamma_list = [0.99, 0.90]
-# lr_list = [1e-5, 1e-4, 1e-3, 1e-2, 1e-1]
+    EPISODES = 2000
+    #gamma_list = [0.99, 0.90]
+    gamma_list = [0.99]
+    # lr_list = [1e-5, 1e-4, 1e-3, 1e-2, 1e-1]
 
 
-fig, axs = plt.subplots(1,1, figsize = (15,11))
+    fig, axs = plt.subplots(1,1, figsize = (15,11))
+    RUNS = 1
 
 
-for g in gamma_list:
-#     env = gym.make("Acrobot-v1")
-    
-    for run in range(RUNS):
-    
-        if args.car:
-            env = gym.make("MountainCar-v0")
-            env.max_episode_steps = 1000
-        if args.maze:
-            # This doesn't have seed argument, so this could break it most likely
-            env = Maze()
-        if args.acrobot:
-            env = gym.make("Acrobot-v1")
-        if args.cart:
-            env = gym.make("CartPole-v0")
-        seed = env.seed()
-        seeds.append(seed)
-    env.seed(0)
-    pe = PolicyEstimator(env)
-    
-    start = time.time()
-    rewards = reinforce(env, pe, isBaseline = True, gamma = g)
-    print(time.time() - start)
-    window = 10
-    smoothed_rewards = [np.mean(rewards[i-window:i+1]) if i > window 
-                            else np.mean(rewards[:i+1]) for i in range(len(rewards))]
-    axs.plot(smoothed_rewards)
+    for g in gamma_list:
+    #     env = gym.make("Acrobot-v1")
+        
+        for run in range(RUNS):
+        
+            if args.car:
+                env = gym.make("MountainCar-v0")
+                env.max_episode_steps = 1000
+            if args.maze:
+                # This doesn't have seed argument, so this could break it most likely
+                env = Maze()
+            if args.acrobot:
+                env = gym.make("Acrobot-v1")
+            if args.cart:
+                env = gym.make("CartPole-v0")
+            # seed = env.seed()
+            # seeds.append(seed)
+            env.seed(0)
+            pe = PolicyEstimator(env)
+            
+            start = time.time()
+            rewards = reinforce(env, pe, isBaseline = True, gamma = g)
+            print(time.time() - start)
+            window = 10
+            smoothed_rewards = [np.mean(rewards[i-window:i+1]) if i > window 
+                                    else np.mean(rewards[:i+1]) for i in range(len(rewards))]
+            axs.plot(smoothed_rewards)
 
-axs.set_xlabel("Episodes")
-axs.set_ylabel("Rewards")
-axs.legend(gamma_list)
-fig.suptitle(f"{env.spec._env_name} rewards on vanilla REINFORCE with moving average baseline with reward shaping", fontsize = 16)
-plt.show()
+    axs.set_xlabel("Episodes")
+    axs.set_ylabel("Rewards")
+    axs.legend(gamma_list)
+    fig.suptitle(f"{env.spec._env_name} rewards on vanilla REINFORCE with moving average baseline with reward shaping", fontsize = 16)
+    plt.show()
 
