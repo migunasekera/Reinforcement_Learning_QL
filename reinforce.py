@@ -4,6 +4,7 @@ from torch import nn
 from torch import optim
 import torch
 import gym
+from gym import wrappers
 from evaluation import evaluate
 import matplotlib.pyplot as plt
 import time
@@ -11,6 +12,7 @@ import argparse
 from maze import Maze
 import matplotlib.pyplot as plt
 import time
+import pickle as pl
 
 class PolicyEstimator(nn.Module):
     def __init__(self, env):
@@ -66,8 +68,25 @@ def reward_shaper(env, state):
     return np.abs(state) / env.observation_space.high
 
 
-def generate_episode(env, policy_estimator):
+def generate_episode(env, policy_estimator, renderEpisode = False):
+    '''
+    parameters:
+    -----------
+    env: gym environment
+    policy_estimator: NN model to generate policy decisions
+    isRendered: If rendered, then have the model render at specified times (in the code, currently set to every 10 episodes)
+
+    returns:
+    --------
+    cumulative_reward (int): total reward delivered in episode
+    reward_list (list[int]): reward delievered at each time step
+    action_list (list[int]: action taken at each time step
+    state_list (list[float]): state at each time step
+    '''
     done = False
+
+
+
 
     action_prob_val = []
     action_list = []
@@ -75,6 +94,8 @@ def generate_episode(env, policy_estimator):
     s_0 = torch.from_numpy(env.reset()).float() # Initial state
     cumulative_reward = 0
     reward_list = []
+
+
     while not done:
         # Pick an action, and step through environment
         
@@ -84,6 +105,10 @@ def generate_episode(env, policy_estimator):
         state_list.append(s_0)
 
         s_1, reward, done, _ = env.step(action)
+
+        # Render the episode
+        if renderEpisode == True:
+            env.render()
         
         # Track this on the graph, but use reward shaping in your calculations
         cumulative_reward += reward
@@ -106,20 +131,46 @@ def generate_episode(env, policy_estimator):
         reward_list.append(reward)
         action_list.append(action)
         s_0 = torch.from_numpy(s_1).float() # Make state the next one
-            
     return cumulative_reward, reward_list, action_list, state_list
 
 
-def reinforce(env, policy_estimator, EPISODES = 2000, isBaseline = False, lr = .001, gamma = 0.99):
+def reinforce(env, policy_estimator, EPISODES = 2000, isBaseline = False, lr = .001, gamma = 0.99, isRendered = False):
     '''
     When going through episodes, this will do reward shaping
+
+    params:
+    -------
+    env: gym environment
+    policy_estimator:
+    EPISODES: number of episodes simulation is run through
+    isBaseline (bool): decide whether baseline is used or not
+    lr: learning rate of Adam optimizer
+    gamma: discount factor [0,1]
+
+    returns:
+    --------
+    cumulative rewards (list): list of numerical reward per episode
+
     
     '''
+    # recordInterval = 50
+    recordTimes = {1,5,50,150,300,500,1000,1999}
+    # recordTimes = [1,5,50,150,300,500,1000,1999]
     cumulative_reward = []
     optimizer = optim.Adam(pe.parameters(), lr = lr)
+    
 
     for episode in range(EPISODES):
-        cum_rewards, reward_list, action_list, state_list = generate_episode(env, policy_estimator)
+        # Episode is rendered. No effect on updating hyperparameters
+
+        # render if option is open
+        if isRendered is True:
+                if episode in recordTimes:
+                    generate_episode(env, policy_estimator, renderEpisode = True)
+
+        # This run will be used to update hyperparameters
+        cum_rewards, reward_list, action_list, state_list = generate_episode(env, policy_estimator, renderEpisode = False)
+
         
         # Use the cumulative reward metric in the end. Now that I've added reward shaping, it would be best to show whether the end goal converges, rather than what I'm shaping
         cumulative_reward.append(cum_rewards)
@@ -173,50 +224,91 @@ if __name__ == "__main__":
         '--acrobot', help = "Choose the acrobot environment", action = "store_true"
     )
 
+    parser.add_argument(
+        '--baseline', help = "tell that there's a baseline", action = "store_true"
+    )
+    parser.add_argument(
+        '--render', help = "render at specific time intervals set in REINFORCE", action = "store_true"
+    )
+
     args = parser.parse_args()
 
 
     EPISODES = 2000
-    #gamma_list = [0.99, 0.90]
-    gamma_list = [0.99]
+    gamma_list = [0.99, 0.90]
     # lr_list = [1e-5, 1e-4, 1e-3, 1e-2, 1e-1]
 
 
     fig, axs = plt.subplots(1,1, figsize = (15,11))
-    RUNS = 1
+
+    include_baseline = [False, True]
+    if args.baseline:
+        includeBaseline = True 
+    else:
+        includeBaseline = False
+
+    if args.render:
+        includeRender = True 
+    else:
+        includeRender= False
+
+
+
+    #for base in include_baseline:
+    #    #env = gym.make("MountainCar-v0")
+    #    #env.max_episode_steps = 1000
+    #    env = gym.make("Acrobot-v1")
+    #    # env = wrappers.Monitor(env, './videos/' + str(time.time()) + '/')
+    #    env.seed(50)
+    #    pe = PolicyEstimator(env)
+    #    
+    #    start = time.time()
+    #    rewards = reinforce(env, pe, isBaseline = base, gamma = .99, isRendered = False)
+
+    #    print(time.time() - start)
+    #    window = 10
+    #    smoothed_rewards = [np.mean(rewards[i-window:i+1]) if i > window 
+    #                            else np.mean(rewards[:i+1]) for i in range(len(rewards))]
+    #    axs.plot(smoothed_rewards)
+
+    
 
 
     for g in gamma_list:
     #     env = gym.make("Acrobot-v1")
         
-        for run in range(RUNS):
-        
-            if args.car:
-                env = gym.make("MountainCar-v0")
-                env.max_episode_steps = 1000
-            if args.maze:
-                # This doesn't have seed argument, so this could break it most likely
-                env = Maze()
-            if args.acrobot:
-                env = gym.make("Acrobot-v1")
-            if args.cart:
-                env = gym.make("CartPole-v0")
-            # seed = env.seed()
-            # seeds.append(seed)
-            env.seed(0)
-            pe = PolicyEstimator(env)
-            
-            start = time.time()
-            rewards = reinforce(env, pe, isBaseline = True, gamma = g)
-            print(time.time() - start)
-            window = 10
-            smoothed_rewards = [np.mean(rewards[i-window:i+1]) if i > window 
-                                    else np.mean(rewards[:i+1]) for i in range(len(rewards))]
-            axs.plot(smoothed_rewards)
+        if args.car:
+            env = gym.make("MountainCar-v0")
+            env.max_episode_steps = 1000
+        elif args.maze:
+            # This doesn't have seed argument, so this could break it most likely
+            env = Maze()
+        elif args.acrobot:
+            env = gym.make("Acrobot-v1")
+        elif args.cart:
+            env = gym.make("CartPole-v0")
+#        else:
+#            raise NameError("No environment specified!")
+
+        env.seed(0)
+        pe = PolicyEstimator(env)
+        start = time.time()
+        rewards = reinforce(env, pe, isBaseline = includeBaseline, gamma = g, isRendered = includeRender)
+
+
+
+        print(time.time() - start)
+        window = 10
+        smoothed_rewards = [np.mean(rewards[i-window:i+1]) if i > window 
+                                else np.mean(rewards[:i+1]) for i in range(len(rewards))]
+        axs.plot(smoothed_rewards)
 
     axs.set_xlabel("Episodes")
     axs.set_ylabel("Rewards")
-    axs.legend(gamma_list)
-    fig.suptitle(f"{env.spec._env_name} rewards on vanilla REINFORCE with moving average baseline with reward shaping", fontsize = 16)
+    # axs.legend(gamma_list)
+    # fig.suptitle(f"{env.spec._env_name} rewards on vanilla REINFORCE with moving average baseline with reward shaping", fontsize = 16)
+    fig.suptitle(f"{env.spec._env_name} baseline vs. no baseline on REINFORCE", fontsize = 16)
     plt.show()
+    with open('pickled_figures/acrobot_baselineComparison_99.pickle','wb') as fid:
+        pl.dump(fig, fid)
 
