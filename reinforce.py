@@ -15,6 +15,18 @@ import time
 import pickle as pl
 
 class PolicyEstimator(nn.Module):
+    ''' 
+    Feedforward Neural Net written in PyTorch, to model Policy Gradient estimator
+
+    model:
+    - 1 hidden layer
+    - 16 nodes
+    - ReLU activation
+
+    input: Gym environment observation (state) space
+    output: Gym environment action space probabilities based on Softmax function
+
+    '''
     def __init__(self, env):
         super(PolicyEstimator,self).__init__()
         
@@ -30,7 +42,16 @@ class PolicyEstimator(nn.Module):
 
 def discount_rewards(reward_array, DISCOUNT = 0.99):
     '''
-    This will take the reward, and recursively update them, in reverse.
+    Returns a reward function as part of loss function, which is updated recursively in reverse in Monte-Carlo fashion
+    
+    parameters:
+    -----------
+    reward_array: array of rewards delivered for each time step in episode
+    DISCOUNT: discounting value, known as gamma. Multiplier for reward lookup
+
+    returns:
+    --------
+    G: array value on top 
     
     '''
     
@@ -49,6 +70,20 @@ def discount_rewards(reward_array, DISCOUNT = 0.99):
 #     return action
 
 def action_choice(policy_estimator, state):
+    '''
+    Given a state, an Action is chosen via uniform sampling from a probability distribution from the Policy estimator. This function assumes a discrete action space
+
+    parameters:
+    -----------
+    policy_estimator: Function approximator based on Feedforward NN model
+    state: observation (state) vector in Gym environment observation space
+
+    returns:
+    --------
+    action: value in action space chosen from policy gradient
+
+
+    '''
     # May cause conflicts with the Maze environment
     action_probs = policy_estimator(state).detach().numpy()
     action = np.random.choice((policy_estimator.n_output), p = action_probs)
@@ -59,11 +94,11 @@ def reward_shaper(env, state):
     '''
     based on Andrew Ng's work: https://people.eecs.berkeley.edu/~pabbeel/cs287-fa09/readings/NgHaradaRussell-shaping-ICML1999.pdf
     
-    Purpose is to introduce less sparse, smaller rewards, so that reaching the next bigger reward is more attainable
-    
-    This is designed for the MountainCar example, which has a very sparse reward. In fact, it may be better to introduce something that would lead to a positive reward at its max!
-    
-    Normalize to be between 0 and 1
+    Purpose is to introduce less sparse, smaller rewards, so that reaching the next bigger reward is more attainable This is designed for the MountainCar example, which has a very sparse reward. In fact, it may be better to introduce something that would lead to a positive reward at its max!
+
+    returns:
+    --------
+    Value that is normalized between between 0 and 1
     '''
     return np.abs(state) / env.observation_space.high
 
@@ -136,7 +171,7 @@ def generate_episode(env, policy_estimator, renderEpisode = False):
 
 def reinforce(env, policy_estimator, EPISODES = 2000, isBaseline = False, lr = .001, gamma = 0.99, isRendered = False):
     '''
-    When going through episodes, this will do reward shaping
+    Runs REINFORCE algorithm. Reinforce is a policy gradient algorithm which creates a loss function to perform gradient ascent, which maximizes rewards by exploring parameter space
 
     params:
     -------
@@ -153,18 +188,15 @@ def reinforce(env, policy_estimator, EPISODES = 2000, isBaseline = False, lr = .
 
     
     '''
-    # recordInterval = 50
     recordTimes = {1,5,50,150,300,500,1000,1999}
-    # recordTimes = [1,5,50,150,300,500,1000,1999]
     cumulative_reward = []
     optimizer = optim.Adam(pe.parameters(), lr = lr)
     
 
     for episode in range(EPISODES):
-        # Episode is rendered. No effect on updating hyperparameters
 
-        # render if option is open
         if isRendered is True:
+                # render this run if selected
                 if episode in recordTimes:
                     generate_episode(env, policy_estimator, renderEpisode = True)
 
@@ -172,7 +204,6 @@ def reinforce(env, policy_estimator, EPISODES = 2000, isBaseline = False, lr = .
         cum_rewards, reward_list, action_list, state_list = generate_episode(env, policy_estimator, renderEpisode = False)
 
         
-        # Use the cumulative reward metric in the end. Now that I've added reward shaping, it would be best to show whether the end goal converges, rather than what I'm shaping
         cumulative_reward.append(cum_rewards)
 
         # Compute loss
@@ -180,7 +211,6 @@ def reinforce(env, policy_estimator, EPISODES = 2000, isBaseline = False, lr = .
         action_tensor = torch.tensor(action_list).long()
         state_tensor = torch.stack(state_list)
 
-        # Does this need to be seeded?
         action_output = torch.log(policy_estimator(state_tensor))
 
         # This is just doing an indexing! It picks the action that was chosen in the run. There is no operation here that pytorch has to track
@@ -196,20 +226,22 @@ def reinforce(env, policy_estimator, EPISODES = 2000, isBaseline = False, lr = .
             baseline = torch.stack([torch.mean(return_tensor[i-WINDOW:i+1]) if i > WINDOW 
                         else torch.mean(return_tensor[:i+1]) for i in range(len(return_tensor))])
             return_tensor = return_tensor - baseline
-        # print(return_tensor[-10:])
 
-        # loss has negative sign, because we are doing gradient ascent
-        loss = torch.sum(-return_tensor * picked_logprob)
-    #     loss_list.append(loss)
+        # loss has negative sign, because we are doing gradient ASCENT
         print(f'\r episode {episode} -------- loss {loss} -------- rewards {cumulative_reward[-1]}', end = " ")
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
     
     return cumulative_reward
-           
-                
+
+
+
+
+
+
 if __name__ == "__main__":
+    # ------------------------------------PARAMETERS ------------------------------------------------ #
     parser = argparse.ArgumentParser(
         description='Choose the environment we are working with. All will be run over 2000 episodes')
     parser.add_argument(
@@ -234,9 +266,9 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
 
+    # -------------- PARAMETERS ------------------ #
     EPISODES = 2000
     gamma_list = [0.99, 0.90]
-    # lr_list = [1e-5, 1e-4, 1e-3, 1e-2, 1e-1]
 
 
     fig, axs = plt.subplots(1,1, figsize = (15,11))
@@ -252,30 +284,7 @@ if __name__ == "__main__":
     else:
         includeRender= False
 
-
-
-    #for base in include_baseline:
-    #    #env = gym.make("MountainCar-v0")
-    #    #env.max_episode_steps = 1000
-    #    env = gym.make("Acrobot-v1")
-    #    # env = wrappers.Monitor(env, './videos/' + str(time.time()) + '/')
-    #    env.seed(50)
-    #    pe = PolicyEstimator(env)
-    #    
-    #    start = time.time()
-    #    rewards = reinforce(env, pe, isBaseline = base, gamma = .99, isRendered = False)
-
-    #    print(time.time() - start)
-    #    window = 10
-    #    smoothed_rewards = [np.mean(rewards[i-window:i+1]) if i > window 
-    #                            else np.mean(rewards[:i+1]) for i in range(len(rewards))]
-    #    axs.plot(smoothed_rewards)
-
-    
-
-
     for g in gamma_list:
-    #     env = gym.make("Acrobot-v1")
         
         if args.car:
             env = gym.make("MountainCar-v0")
@@ -305,8 +314,6 @@ if __name__ == "__main__":
 
     axs.set_xlabel("Episodes")
     axs.set_ylabel("Rewards")
-    # axs.legend(gamma_list)
-    # fig.suptitle(f"{env.spec._env_name} rewards on vanilla REINFORCE with moving average baseline with reward shaping", fontsize = 16)
     fig.suptitle(f"{env.spec._env_name} baseline vs. no baseline on REINFORCE", fontsize = 16)
     plt.show()
     with open('pickled_figures/acrobot_baselineComparison_99.pickle','wb') as fid:

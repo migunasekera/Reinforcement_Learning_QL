@@ -20,34 +20,48 @@ class MDP(Maze):
         
 
 def RMSE(predictions, targets):
+    '''
+    Root Mean square error of Q-table Q(state space, action space)
+
+    parameters:
+    ----------
+    predictions: predicted q-table
+    targets: optimal q-table
+    '''
     return np.sqrt(((predictions - targets) ** 2).mean())
+
 def RMSE_calc(predictions,targets):
+    '''
+    Root Mean square error: 
+    '''
     return np.sqrt(((predictions - targets) ** 2).mean())
 
-# def RMSE(Q_t, Q_opt):
-#     '''
-#     Root Mean square error: 
-#     '''
-#     return np.sqrt(np.sum((Q_opt - Q_t) ** 2) / len(Q_opt.flatten()))
-
-# def RMSE_calc(Q_t, Q_opt):
-#     '''
-#     Root Mean square error: 
-#     '''
-#     return np.sqrt(np.sum((Q_opt - Q_t) ** 2) / len(Q_opt.flatten()))
 
 
 
 
-######################################################################################################
-#Maze
-######################################################################################################
+# ------------------------------------Maze-----------------------------------------------------------#
 def train_maze(env, EPISODES, EPISODE_EVALUATION, EPSILON, LEARNING_RATE, findOptimal = False):
     '''
+    Train maze environments with a Q-learning approach. Why is there repetitive code here? Could I combine the two by running q-learning after the discretized thing is made? q-table size is also dependent on environmental variables
+
+    parameters:
+    -----------
     env: Maze environment
-    EPSILON: Determines epsilon for epsilon greedy algorithm. Higher the value, the less greedy [0,1]
-    EPISODE_EVALUATION: Determines the number of episodes before we will evaluate how well the maze is doing
-    EPISODES: Number of episodes that the learning algorith will run
+    EPISODES: Total # of episodes
+    EPISODE_EVALUATION: episode interval to evaluate. if findOptimal option selected, then q-table alog with episode number is saved as an .npy file
+    EPSILON: unit interval, which is exploration rate with an epsilon-greedy approach
+    LEARNING_RATE: unit interval, which is rate of changing q-values at update step
+    findOptimal: Create an optimal q-table (how does it do this??)
+    Render: Create render of evaluation episodes
+
+    returns:
+    --------
+    q_table: updated Q-table of state-action values
+    realEval: array including number of steps to completion
+    RMSE: array of root mean square error per episode, compared to an optimal Q-table
+
+
     '''
     name = "Maze"
     DISCOUNT_RATE = 0.95
@@ -122,36 +136,25 @@ def train_maze(env, EPISODES, EPISODE_EVALUATION, EPSILON, LEARNING_RATE, findOp
 
     return q_table, realEval, RMSE
 
-def eval_plot_REINFORCE(realEval, *args, save = False):
-    fig, axs = plt.subplots(1,3)
-    fig.suptitle(f"Evaluation metrics for the {args[0]} puzzle with current Q-Learning strategy")
-
-    episodes = realEval[...,0]
-    steps = realEval[...,1]
-    reward = realEval[...,2]
-    RMSE_val = RMSE[...,1]
-
-
-    axs[0].plot(realEval[...,0],realEval[...,1])
-    axs[0].set_xlabel("Episodes")
-    axs[0].set_ylabel("Steps")
-    axs[0].set_xlim((0,EPISODES))
-    axs[0].set_ylim((0,np.max(steps)))
-    axs[0].set_title("Number of Steps")
-    #TODO: Implement curve fitting, to make the plots more reasonable
-
-    axs[1].plot(realEval[...,0],realEval[...,2])
-    axs[1].set_xlabel("Episodes")
-    axs[1].set_ylabel("Reward")
-    axs[1].set_xlim((0,EPISODES))
-    axs[1].set_ylim((np.min(reward),np.max(reward)))
-    axs[1].set_title("Reward (0.0 - 3.0)")
-    if save:
-        fig.savefig(f"Results/{args[0]}_{int(args[1])}_{int(args[2])}.png")
 
 
 
 def evaluation_plot(realEval, RMSE, *args, save = False):
+    '''
+    Plots following evaluation metrics during training (y-axis), along # of total episodes:
+    - Steps to complete
+    - Reward collected
+    - root mean square error (RMSE): 
+
+    parameters:
+    -----------
+    realEval: array of evaluation metrics at each episodes
+    RMSE: root mean square error 
+    *args: extra parameters, including name, # episodes, learning rate, Epsilon (for epsilon greedy exploration)
+    save: boolean value to save plot in memory
+
+
+    '''
     fig, axs = plt.subplots(1,3)
     fig.suptitle(f"Evaluation metrics for the {args[0]} puzzle with current Q-Learning strategy")
 
@@ -193,6 +196,14 @@ def evaluation_plot(realEval, RMSE, *args, save = False):
 #GYM
 ######################################################################################################
 def get_discrete_state(env, state, DISCRETE_OS_SIZE):
+    '''
+    Create discrete states for Q-learning by binning continuous observations.
+
+    env: Specified environment
+    state: continuous state vector
+    DISCRETE_OS_SIZE: Total number of bins
+
+    '''
     
     discrete_window_size = (env.observation_space.high - env.observation_space.low)  / DISCRETE_OS_SIZE # Step sizes!
     # fudge_factor = (0.01) * env.observation_space.low # This doesn't work b/c the number could be negative
@@ -203,9 +214,24 @@ def get_discrete_state(env, state, DISCRETE_OS_SIZE):
 
 def train_gym(env, EPISODES, EPISODE_EVALUATION, EPSILON, LEARNING_RATE, findOptimal = False, Render = False):
     '''
-    Input: Env: Gym environment
+    Train gym environments with a Q-learning approach. 
 
-    This will train a vlaue 
+    parameters:
+    -----------
+    env: specified gym environment
+    EPISODES: Total # of episodes
+    EPISODE_EVALUATION: episode interval to evaluate. if findOptimal option selected, then q-table alog with episode number is saved as an .npy file
+    EPSILON: unit interval, which is exploration rate with an epsilon-greedy approach
+    LEARNING_RATE: unit interval, which is rate of changing q-values at update step
+    findOptimal: Create an optimal q-table (how does it do this??)
+    Render: Create render of evaluation episodes
+
+    returns:
+    --------
+    q_table: updated Q-table of state-action values
+    realEval: array including number of steps to completion
+    RMSE: array of root mean square error per episode, compared to an optimal Q-table
+
     '''
 
     # LEARNING_RATE = 0.1
@@ -222,9 +248,9 @@ def train_gym(env, EPISODES, EPISODE_EVALUATION, EPSILON, LEARNING_RATE, findOpt
     q_table = np.random.uniform(low = -2, high = 0, size = (DISCRETE_OS_SIZE + [env.action_space.n]))
     if findOptimal is False:
         if env.observation_space.shape[0] == 2: ## Car environment
-            q_optimal = np.load('Q_car.npy', allow_pickle = True) # This is only for the car environemnt
+            q_optimal = np.load('Optimal/Q_car.npy', allow_pickle = True) # This is only for the car environemnt
         elif env.observation_space.shape[0] == 6: ## Acrobot environment
-            q_optimal = np.load("Q_acrobot.npy")
+            q_optimal = np.load("Optimal/Q_acrobot.npy")
     
     else:
         if env.observation_space.shape[0] == 2: ## Car environment
@@ -338,6 +364,7 @@ if __name__ == "__main__":
 
 
     if args.car:
+        # MountainCar parameters to test
         env = gym.make("MountainCar-v0")
         EPISODES = 15000
         EPISODE_EVALUATION = 2000
@@ -361,6 +388,7 @@ if __name__ == "__main__":
         
 
     elif args.maze:
+        # Maze parameters to test
         name = "Q_maze"
         EPISODES = 5000
 
@@ -384,6 +412,7 @@ if __name__ == "__main__":
 
         pass
     elif args.acrobot:
+        # acrobot parameters to test
         name = "Q_acrobot"
         EPISODES = 15000
         EPISODE_EVALUATION = 500

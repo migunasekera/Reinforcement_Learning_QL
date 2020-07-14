@@ -22,7 +22,8 @@ def value_iteration(env, theta=0.0001, discount_factor=1.0):
     """
     Value Iteration Algorithm.
     
-    Args:
+    Parameters:
+    -----------
         env: Maze class, which is inherited from the Maze function that was given for the assignment.
         Importantly, it has the following attributes:
             env.snum is a number of states in the environment. 
@@ -34,6 +35,7 @@ def value_iteration(env, theta=0.0001, discount_factor=1.0):
 
       
     Returns:
+    --------
     A tuple (policy, V, Q_table) of the optimal policy, optimal value function, and optimal action-value table
 
     """
@@ -48,11 +50,13 @@ def value_iteration(env, theta=0.0001, discount_factor=1.0):
         """
         Helper function to calculate the value for all action in a given state.
         
-        Args:
+        Parameters:
+        -----------
             state: The state to consider (int)
             V: The value to use as an estimator, Vector of length env.snum
         
         Returns:
+        --------
             A vector of length env.anum containing the expected value of each action.
         """
         A = np.zeros(env.anum)
